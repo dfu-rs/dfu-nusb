@@ -1,0 +1,66 @@
+name: test suite
+on:
+  push:
+    branches-ignore:
+        - "gh-readonly-queue/**"
+  pull_request:
+  merge_group:
+
+jobs:
+  test:
+    name: cargo test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master # avoid the tag here to prevent dependabot from updating it
+        with:
+          toolchain: "1.78"
+      - run: cargo test --all-targets --all-features
+
+  fmt:
+    name: cargo fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master # avoid the tag here to prevent dependabot from updating it
+        with:
+          toolchain: "1.78"
+          components: rustfmt
+      - run: cargo fmt --all --check
+
+  clippy:
+    name: cargo clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master # avoid the tag here to prevent dependabot from updating it
+        with:
+          toolchain: "1.78"
+          components: clippy
+      - run: cargo clippy --all-targets -- -D warnings
+
+  minimal-dependencies:
+    name: minimal direct dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master # avoid the tag here to prevent dependabot from updating it
+        with:
+          toolchain: "nightly-2024-05-05"
+          components: clippy
+      - run: rm Cargo.lock
+      - run: cargo check -Z direct-minimal-versions
+
+  allgreen:
+    if: always()
+    needs:
+      - test
+      - fmt
+      - clippy
+      - minimal-dependencies
+    runs-on: Ubuntu-latest
+    steps:
+      - name: Decide whether the needed jobs succeeded or failed
+        uses: re-actors/alls-green@release/v1
+        with:
+          jobs: ${{ toJSON(needs) }}

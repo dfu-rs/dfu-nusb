@@ -1,0 +1,26 @@
+[package]
+name = "dfu-nusb"
+version = "0.1.0"
+edition = "2021"
+authors = ["Sjoerd Simons <sjoerd@collabora.com>"]
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/sjoerdsimons/dfu-nusb"
+repository = "https://github.com/sjoerdsimons/dfu-nusb"
+readme = "README.md"
+
+[dependencies]
+dfu-core = { version = "0.6.0", features = ["async"] }
+futures = { version = "0.3.31", features = ["io-compat"] }
+indicatif = "0.17.8"
+nusb = "0.1.10"
+thiserror = "1.0.65"
+tokio = { version = "1.41.0", features = ["full"] }
+tokio-util = { version = "0.7.12", features = ["compat"] }
+
+[dev-dependencies]
+anyhow = "1.0.91"
+clap = { version = "4.5.20", features = ["derive"] }
+tokio = { version = "1.41.0", features = ["full"] }
+
+[patch.crates-io]
+dfu-core = { git = "https://github.com/sjoerdsimons/dfu-core", branch = "async" }
