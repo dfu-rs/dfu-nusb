@@ -3,9 +3,10 @@ use std::time::Duration;
 use dfu_core::{
     asynchronous::{DfuASync, DfuAsyncIo},
     functional_descriptor::FunctionalDescriptor,
-    DfuProtocol,
+    sync::DfuSync,
+    DfuIo, DfuProtocol,
 };
-use nusb::transfer::{ControlIn, ControlOut, ControlType, Recipient, TransferError};
+use nusb::transfer::{Control, ControlIn, ControlOut, ControlType, Recipient, TransferError};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -34,6 +35,7 @@ pub struct DfuNusb {
 }
 
 impl DfuNusb {
+    /// Open a device
     pub fn open(device: nusb::Device, interface: nusb::Interface, alt: u8) -> Result<Self, Error> {
         interface.set_alt_setting(alt)?;
         let descriptor = interface
@@ -69,8 +71,14 @@ impl DfuNusb {
         })
     }
 
+    /// Wrap device in an *async* dfu helper
     pub fn into_async_dfu(self) -> DfuASync<Self, Error> {
         DfuASync::new(self)
+    }
+
+    /// Wrap device in an *sync* dfu helper
+    pub fn into_sync_dfu(self) -> DfuSync<Self, Error> {
+        DfuSync::new(self)
     }
 }
 
@@ -90,6 +98,69 @@ fn split_request_type(request_type: u8) -> (ControlType, Recipient) {
             _ => Recipient::Device,
         },
     )
+}
+
+impl DfuIo for DfuNusb {
+    type Read = usize;
+    type Write = usize;
+    type Reset = ();
+    type Error = Error;
+    type MemoryLayout = dfu_core::memory_layout::MemoryLayout;
+
+    fn read_control(
+        &self,
+        request_type: u8,
+        request: u8,
+        value: u16,
+        buffer: &mut [u8],
+    ) -> Result<Self::Read, Self::Error> {
+        let (control_type, recipient) = split_request_type(request_type);
+        let req = Control {
+            control_type,
+            recipient,
+            request,
+            value,
+            index: self.interface.interface_number() as u16,
+        };
+        let r = self
+            .interface
+            .control_in_blocking(req, buffer, Duration::from_secs(3))?;
+        Ok(r)
+    }
+
+    fn write_control(
+        &self,
+        request_type: u8,
+        request: u8,
+        value: u16,
+        buffer: &[u8],
+    ) -> Result<Self::Write, Self::Error> {
+        let (control_type, recipient) = split_request_type(request_type);
+        let req = Control {
+            control_type,
+            recipient,
+            request,
+            value,
+            index: self.interface.interface_number() as u16,
+        };
+        let r = self
+            .interface
+            .control_out_blocking(req, buffer, Duration::from_secs(3))?;
+        Ok(r)
+    }
+
+    fn usb_reset(&self) -> Result<Self::Reset, Self::Error> {
+        self.device.reset()?;
+        Ok(())
+    }
+
+    fn protocol(&self) -> &dfu_core::DfuProtocol<Self::MemoryLayout> {
+        &self.protocol
+    }
+
+    fn functional_descriptor(&self) -> &FunctionalDescriptor {
+        &self.descriptor
+    }
 }
 
 impl DfuAsyncIo for DfuNusb {
