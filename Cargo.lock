@@ -211,7 +211,7 @@ checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
 [[package]]
 name = "dfu-core"
 version = "0.6.0"
-source = "git+https://github.com/sjoerdsimons/dfu-core?branch=async#cfac99c883d5a356cd85b876c0da32e0eec87c48"
+source = "git+https://github.com/sjoerdsimons/dfu-core?branch=async#606af1cdc535afa25c425eb6a11b54d2a11a037c"
 dependencies = [
  "bytes 1.8.0",
  "displaydoc",
@@ -388,6 +388,7 @@ dependencies = [
  "instant",
  "number_prefix",
  "portable-atomic",
+ "tokio",
  "unicode-width",
 ]
 

@@ -102,20 +102,11 @@ pub async fn run(opts: Cli) -> anyhow::Result<()> {
             .progress_chars("#>-"),
     );
 
-    device.with_progress({
-        let bar = bar.clone();
-        move |count| {
-            bar.inc(count as u64);
-            if bar.position() == file_size as u64 {
-                bar.finish();
-            }
-        }
-    });
-
     if let Some(address) = override_address {
         device.override_address(address);
     }
 
+    let file = bar.wrap_async_read(file);
     let file = file.compat();
     match device.download(file, file_size).await {
         Ok(_) => (),
