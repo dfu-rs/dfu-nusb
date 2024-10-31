@@ -1,13 +1,13 @@
 use std::time::Duration;
 
 use dfu_core::{
-    asynchronous::{DfuASync, DfuAsyncIo},
-    functional_descriptor::FunctionalDescriptor,
-    sync::DfuSync,
-    DfuIo, DfuProtocol,
+    asynchronous::DfuAsyncIo, functional_descriptor::FunctionalDescriptor, DfuIo, DfuProtocol,
 };
 use nusb::transfer::{Control, ControlIn, ControlOut, ControlType, Recipient, TransferError};
 use thiserror::Error;
+
+pub use dfu_core::asynchronous::DfuASync;
+pub use dfu_core::sync::DfuSync;
 
 #[derive(Debug, Error)]
 pub enum Error {
