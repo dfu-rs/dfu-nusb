@@ -6,8 +6,8 @@ use dfu_core::{
 use nusb::transfer::{Control, ControlIn, ControlOut, ControlType, Recipient, TransferError};
 use thiserror::Error;
 
-pub use dfu_core::asynchronous::DfuASync;
-pub use dfu_core::sync::DfuSync;
+pub type DfuASync = dfu_core::asynchronous::DfuASync<DfuNusb, Error>;
+pub type DfuSync = dfu_core::sync::DfuSync<DfuNusb, Error>;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -72,12 +72,12 @@ impl DfuNusb {
     }
 
     /// Wrap device in an *async* dfu helper
-    pub fn into_async_dfu(self) -> DfuASync<Self, Error> {
+    pub fn into_async_dfu(self) -> DfuASync {
         DfuASync::new(self)
     }
 
     /// Wrap device in an *sync* dfu helper
-    pub fn into_sync_dfu(self) -> DfuSync<Self, Error> {
+    pub fn into_sync_dfu(self) -> DfuSync {
         DfuSync::new(self)
     }
 }
