@@ -9,7 +9,7 @@ repository = "https://github.com/sjoerdsimons/dfu-nusb"
 readme = "README.md"
 
 [dependencies]
-dfu-core = { version = "0.6.0", features = ["async"] }
+dfu-core = { version = "0.7.0", features = ["async"] }
 nusb = "0.1.10"
 thiserror = "1.0.65"
 
@@ -20,6 +20,3 @@ futures = { version = "0.3.31", features = ["io-compat"] }
 tokio = { version = "1.41.0", features = ["full"] }
 tokio-util = { version = "0.7.12", features = ["compat"] }
 indicatif = { version = "0.17.8", features = [ "tokio" ] }
-
-[patch.crates-io]
-dfu-core = { git = "https://github.com/sjoerdsimons/dfu-core", branch = "async" }

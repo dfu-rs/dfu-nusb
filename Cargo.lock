@@ -210,8 +210,9 @@ checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
 
 [[package]]
 name = "dfu-core"
-version = "0.6.0"
-source = "git+https://github.com/sjoerdsimons/dfu-core?branch=async#606af1cdc535afa25c425eb6a11b54d2a11a037c"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c5867e35cc12d5e5c775f16e10e5cd135f96756cc07bb4a715fb863f25001bbf"
 dependencies = [
  "bytes 1.8.0",
  "displaydoc",
