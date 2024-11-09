@@ -4,8 +4,9 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Sjoerd Simons <sjoerd@collabora.com>"]
 license = "MIT OR Apache-2.0"
-homepage = "https://github.com/sjoerdsimons/dfu-nusb"
-repository = "https://github.com/sjoerdsimons/dfu-nusb"
+description = "Implementation of DFU using nusb and dfu-core"
+homepage = "https://github.com/dfu-rs/dfu-nusb"
+repository = "https://github.com/dfu-rs/dfu-nusb"
 readme = "README.md"
 
 [dependencies]
