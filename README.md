@@ -1,4 +1,4 @@
-![Rust](https://github.com/dfu-rs/dfu-nusb/workflows/main/badge.svg)
+![CI](https://github.com/dfu-rs/dfu-nusb/actions/workflows/ci.yml/badge.svg)
 [![Latest Version](https://img.shields.io/crates/v/dfu-nusb.svg)](https://crates.io/crates/dfu-nusb)
 ![License](https://img.shields.io/crates/l/dfu-nusb)
 [![Docs.rs](https://docs.rs/dfu-nusb/badge.svg)](https://docs.rs/dfu-nusb)
