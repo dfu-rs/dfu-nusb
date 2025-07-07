@@ -20,4 +20,4 @@ clap = { version = "4.5.20", features = ["derive"] }
 futures = { version = "0.3.31", features = ["io-compat"] }
 tokio = { version = "1.41.0", features = ["full"] }
 tokio-util = { version = "0.7.12", features = ["compat"] }
-indicatif = { version = "0.17.8", features = [ "tokio" ] }
+indicatif = { version = "0.18.0", features = [ "tokio" ] }
