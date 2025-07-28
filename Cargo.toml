@@ -11,7 +11,7 @@ readme = "README.md"
 
 [dependencies]
 dfu-core = { version = "0.7.0", features = ["async"] }
-nusb = "0.1.10"
+nusb = "0.2.0"
 thiserror = "2.0.1"
 
 [dev-dependencies]
