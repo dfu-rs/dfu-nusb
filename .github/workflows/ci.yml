@@ -50,6 +50,7 @@ jobs:
           components: clippy
       - run: rm Cargo.lock
       - run: cargo check -Z direct-minimal-versions --features tokio
+      - run: cargo check -Z direct-minimal-versions --features async-std
 
   allgreen:
     if: always()
