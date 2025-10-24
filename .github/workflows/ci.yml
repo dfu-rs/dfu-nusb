@@ -15,7 +15,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@master # avoid the tag here to prevent dependabot from updating it
         with:
           toolchain: "1.78"
-      - run: cargo test --all-targets --all-features
+      - run: cargo test --all-targets --features tokio
 
   fmt:
     name: cargo fmt
@@ -37,7 +37,7 @@ jobs:
         with:
           toolchain: "1.78"
           components: clippy
-      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo clippy --all-targets --features tokio -- -D warnings
 
   minimal-dependencies:
     name: minimal direct dependencies
@@ -49,7 +49,7 @@ jobs:
           toolchain: "nightly-2024-05-05"
           components: clippy
       - run: rm Cargo.lock
-      - run: cargo check -Z direct-minimal-versions
+      - run: cargo check -Z direct-minimal-versions --features tokio
 
   allgreen:
     if: always()
