@@ -329,7 +329,7 @@ checksum = "d0a5c400df2834b80a4c3327b3aad3a4c4cd4de0629063962b03235697506a28"
 [[package]]
 name = "dfu-core"
 version = "0.9.1"
-source = "git+https://github.com/genkiinstruments/dfu-core?rev=ee78b1ac2ab8aeee1edbd0da79931c6f9c705f38#ee78b1ac2ab8aeee1edbd0da79931c6f9c705f38"
+source = "git+https://github.com/genkiinstruments/dfu-core?rev=67dcd21613778a461063ab014c8544411c586ada#67dcd21613778a461063ab014c8544411c586ada"
 dependencies = [
  "bytes 1.11.0",
  "displaydoc",

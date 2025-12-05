@@ -30,4 +30,4 @@ tokio-util = { version = "0.7.12", features = ["compat"] }
 indicatif = { version = "0.17.8", features = [ "tokio" ] }
 
 [patch.crates-io]
-dfu-core = { git = "https://github.com/genkiinstruments/dfu-core", rev = "ee78b1ac2ab8aeee1edbd0da79931c6f9c705f38" }
+dfu-core = { git = "https://github.com/genkiinstruments/dfu-core", rev = "67dcd21613778a461063ab014c8544411c586ada" }
