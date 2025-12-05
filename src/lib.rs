@@ -29,7 +29,7 @@ pub enum Error {
 
 pub struct DfuNusb {
     device: nusb::Device,
-    interface: nusb::Interface,
+    interface: Option<nusb::Interface>,
     descriptor: FunctionalDescriptor,
     protocol: dfu_core::DfuProtocol<dfu_core::memory_layout::MemoryLayout>,
 }
@@ -65,7 +65,7 @@ impl DfuNusb {
 
         Ok(Self {
             device,
-            interface,
+            interface: Some(interface),
             descriptor,
             protocol,
         })
@@ -114,17 +114,20 @@ impl DfuIo for DfuNusb {
         value: u16,
         buffer: &mut [u8],
     ) -> Result<Self::Read, Self::Error> {
+        let interface = self.interface.as_ref().ok_or(std::io::Error::new(
+            std::io::ErrorKind::NotConnected,
+            "Interface closed",
+        ))?;
+
         let (control_type, recipient) = split_request_type(request_type);
         let req = Control {
             control_type,
             recipient,
             request,
             value,
-            index: self.interface.interface_number() as u16,
+            index: interface.interface_number() as u16,
         };
-        let r = self
-            .interface
-            .control_in_blocking(req, buffer, Duration::from_secs(3))?;
+        let r = interface.control_in_blocking(req, buffer, Duration::from_secs(3))?;
         Ok(r)
     }
 
@@ -135,21 +138,24 @@ impl DfuIo for DfuNusb {
         value: u16,
         buffer: &[u8],
     ) -> Result<Self::Write, Self::Error> {
+        let interface = self.interface.as_ref().ok_or(std::io::Error::new(
+            std::io::ErrorKind::NotConnected,
+            "Interface closed",
+        ))?;
+
         let (control_type, recipient) = split_request_type(request_type);
         let req = Control {
             control_type,
             recipient,
             request,
             value,
-            index: self.interface.interface_number() as u16,
+            index: interface.interface_number() as u16,
         };
-        let r = self
-            .interface
-            .control_out_blocking(req, buffer, Duration::from_secs(3))?;
+        let r = interface.control_out_blocking(req, buffer, Duration::from_secs(3))?;
         Ok(r)
     }
 
-    fn usb_reset(&self) -> Result<Self::Reset, Self::Error> {
+    fn usb_reset(&mut self) -> Result<Self::Reset, Self::Error> {
         self.device.reset()?;
         Ok(())
     }
@@ -177,16 +183,21 @@ impl DfuAsyncIo for DfuNusb {
         value: u16,
         buffer: &mut [u8],
     ) -> Result<Self::Read, Self::Error> {
+        let interface = self.interface.as_ref().ok_or(std::io::Error::new(
+            std::io::ErrorKind::NotConnected,
+            "Interface closed",
+        ))?;
+
         let (control_type, recipient) = split_request_type(request_type);
         let req = ControlIn {
             control_type,
             recipient,
             request,
             value,
-            index: self.interface.interface_number() as u16,
+            index: interface.interface_number() as u16,
             length: buffer.len() as u16,
         };
-        let r = self.interface.control_in(req).await.into_result()?;
+        let r = interface.control_in(req).await.into_result()?;
         let len = buffer.len().min(r.len());
         buffer[0..len].copy_from_slice(&r[0..len]);
         Ok(len)
@@ -199,20 +210,26 @@ impl DfuAsyncIo for DfuNusb {
         value: u16,
         buffer: &[u8],
     ) -> Result<Self::Write, Self::Error> {
+        let interface = self.interface.as_ref().ok_or(std::io::Error::new(
+            std::io::ErrorKind::NotConnected,
+            "Interface closed",
+        ))?;
+
         let (control_type, recipient) = split_request_type(request_type);
         let req = ControlOut {
             control_type,
             recipient,
             request,
             value,
-            index: self.interface.interface_number() as u16,
+            index: interface.interface_number() as u16,
             data: buffer,
         };
-        let r = self.interface.control_out(req).await.into_result()?;
+        let r = interface.control_out(req).await.into_result()?;
         Ok(r.actual_length())
     }
 
-    async fn usb_reset(&self) -> Result<Self::Reset, Self::Error> {
+    async fn usb_reset(&mut self) -> Result<Self::Reset, Self::Error> {
+        self.interface.take().map(|iface| drop(iface));
         self.device.reset()?;
         Ok(())
     }
