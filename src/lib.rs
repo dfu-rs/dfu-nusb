@@ -229,7 +229,7 @@ impl DfuAsyncIo for DfuNusb {
     }
 
     async fn usb_reset(&mut self) -> Result<Self::Reset, Self::Error> {
-        self.interface.take().map(|iface| drop(iface));
+        self.interface = None;
         self.device.reset()?;
         Ok(())
     }
