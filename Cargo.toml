@@ -15,7 +15,7 @@ tokio = ["dep:tokio"]
 async-std = ["dep:async-std"]
 
 [dependencies]
-dfu-core = { version = "0.9.0", features = ["async"] }
+dfu-core = { version = "0.10", features = ["async"] }
 nusb = "0.1.10"
 thiserror = "2.0.1"
 tokio = { version = "1.48.0", features = ["time"], optional = true }
@@ -28,6 +28,3 @@ futures = { version = "0.3.31", features = ["io-compat"] }
 tokio = { version = "1.48.0", features = ["full"] }
 tokio-util = { version = "0.7.12", features = ["compat"] }
 indicatif = { version = "0.17.8", features = [ "tokio" ] }
-
-[patch.crates-io]
-dfu-core = { git = "https://github.com/genkiinstruments/dfu-core", rev = "67dcd21613778a461063ab014c8544411c586ada" }
