@@ -80,6 +80,13 @@ impl DfuNusb {
     pub fn into_sync_dfu(self) -> DfuSync {
         DfuSync::new(self)
     }
+
+    fn interface(&self) -> Result<&nusb::Interface, std::io::Error> {
+        self.interface.as_ref().ok_or(std::io::Error::new(
+            std::io::ErrorKind::NotConnected,
+            "Interface closed",
+        ))
+    }
 }
 
 fn split_request_type(request_type: u8) -> (ControlType, Recipient) {
@@ -114,20 +121,17 @@ impl DfuIo for DfuNusb {
         value: u16,
         buffer: &mut [u8],
     ) -> Result<Self::Read, Self::Error> {
-        let interface = self.interface.as_ref().ok_or(std::io::Error::new(
-            std::io::ErrorKind::NotConnected,
-            "Interface closed",
-        ))?;
-
         let (control_type, recipient) = split_request_type(request_type);
         let req = Control {
             control_type,
             recipient,
             request,
             value,
-            index: interface.interface_number() as u16,
+            index: self.interface()?.interface_number() as u16,
         };
-        let r = interface.control_in_blocking(req, buffer, Duration::from_secs(3))?;
+        let r = self
+            .interface()?
+            .control_in_blocking(req, buffer, Duration::from_secs(3))?;
         Ok(r)
     }
 
@@ -138,20 +142,17 @@ impl DfuIo for DfuNusb {
         value: u16,
         buffer: &[u8],
     ) -> Result<Self::Write, Self::Error> {
-        let interface = self.interface.as_ref().ok_or(std::io::Error::new(
-            std::io::ErrorKind::NotConnected,
-            "Interface closed",
-        ))?;
-
         let (control_type, recipient) = split_request_type(request_type);
         let req = Control {
             control_type,
             recipient,
             request,
             value,
-            index: interface.interface_number() as u16,
+            index: self.interface()?.interface_number() as u16,
         };
-        let r = interface.control_out_blocking(req, buffer, Duration::from_secs(3))?;
+        let r = self
+            .interface()?
+            .control_out_blocking(req, buffer, Duration::from_secs(3))?;
         Ok(r)
     }
 
@@ -183,21 +184,16 @@ impl DfuAsyncIo for DfuNusb {
         value: u16,
         buffer: &mut [u8],
     ) -> Result<Self::Read, Self::Error> {
-        let interface = self.interface.as_ref().ok_or(std::io::Error::new(
-            std::io::ErrorKind::NotConnected,
-            "Interface closed",
-        ))?;
-
         let (control_type, recipient) = split_request_type(request_type);
         let req = ControlIn {
             control_type,
             recipient,
             request,
             value,
-            index: interface.interface_number() as u16,
+            index: self.interface()?.interface_number() as u16,
             length: buffer.len() as u16,
         };
-        let r = interface.control_in(req).await.into_result()?;
+        let r = self.interface()?.control_in(req).await.into_result()?;
         let len = buffer.len().min(r.len());
         buffer[0..len].copy_from_slice(&r[0..len]);
         Ok(len)
@@ -210,21 +206,16 @@ impl DfuAsyncIo for DfuNusb {
         value: u16,
         buffer: &[u8],
     ) -> Result<Self::Write, Self::Error> {
-        let interface = self.interface.as_ref().ok_or(std::io::Error::new(
-            std::io::ErrorKind::NotConnected,
-            "Interface closed",
-        ))?;
-
         let (control_type, recipient) = split_request_type(request_type);
         let req = ControlOut {
             control_type,
             recipient,
             request,
             value,
-            index: interface.interface_number() as u16,
+            index: self.interface()?.interface_number() as u16,
             data: buffer,
         };
-        let r = interface.control_out(req).await.into_result()?;
+        let r = self.interface()?.control_out(req).await.into_result()?;
         Ok(r.actual_length())
     }
 
