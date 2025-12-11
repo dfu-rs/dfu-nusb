@@ -29,7 +29,7 @@ pub enum Error {
 
 pub struct DfuNusb {
     device: nusb::Device,
-    interface: nusb::Interface,
+    interface: Option<nusb::Interface>,
     descriptor: FunctionalDescriptor,
     protocol: dfu_core::DfuProtocol<dfu_core::memory_layout::MemoryLayout>,
 }
@@ -65,7 +65,7 @@ impl DfuNusb {
 
         Ok(Self {
             device,
-            interface,
+            interface: Some(interface),
             descriptor,
             protocol,
         })
@@ -79,6 +79,13 @@ impl DfuNusb {
     /// Wrap device in an *sync* dfu helper
     pub fn into_sync_dfu(self) -> DfuSync {
         DfuSync::new(self)
+    }
+
+    fn interface(&self) -> Result<&nusb::Interface, std::io::Error> {
+        self.interface.as_ref().ok_or(std::io::Error::new(
+            std::io::ErrorKind::NotConnected,
+            "Interface closed",
+        ))
     }
 }
 
@@ -120,10 +127,10 @@ impl DfuIo for DfuNusb {
             recipient,
             request,
             value,
-            index: self.interface.interface_number() as u16,
+            index: self.interface()?.interface_number() as u16,
         };
         let r = self
-            .interface
+            .interface()?
             .control_in_blocking(req, buffer, Duration::from_secs(3))?;
         Ok(r)
     }
@@ -141,15 +148,15 @@ impl DfuIo for DfuNusb {
             recipient,
             request,
             value,
-            index: self.interface.interface_number() as u16,
+            index: self.interface()?.interface_number() as u16,
         };
         let r = self
-            .interface
+            .interface()?
             .control_out_blocking(req, buffer, Duration::from_secs(3))?;
         Ok(r)
     }
 
-    fn usb_reset(&self) -> Result<Self::Reset, Self::Error> {
+    fn usb_reset(&mut self) -> Result<Self::Reset, Self::Error> {
         self.device.reset()?;
         Ok(())
     }
@@ -183,10 +190,10 @@ impl DfuAsyncIo for DfuNusb {
             recipient,
             request,
             value,
-            index: self.interface.interface_number() as u16,
+            index: self.interface()?.interface_number() as u16,
             length: buffer.len() as u16,
         };
-        let r = self.interface.control_in(req).await.into_result()?;
+        let r = self.interface()?.control_in(req).await.into_result()?;
         let len = buffer.len().min(r.len());
         buffer[0..len].copy_from_slice(&r[0..len]);
         Ok(len)
@@ -205,14 +212,15 @@ impl DfuAsyncIo for DfuNusb {
             recipient,
             request,
             value,
-            index: self.interface.interface_number() as u16,
+            index: self.interface()?.interface_number() as u16,
             data: buffer,
         };
-        let r = self.interface.control_out(req).await.into_result()?;
+        let r = self.interface()?.control_out(req).await.into_result()?;
         Ok(r.actual_length())
     }
 
-    async fn usb_reset(&self) -> Result<Self::Reset, Self::Error> {
+    async fn usb_reset(&mut self) -> Result<Self::Reset, Self::Error> {
+        self.interface = None;
         self.device.reset()?;
         Ok(())
     }
