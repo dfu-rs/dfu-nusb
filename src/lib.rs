@@ -3,7 +3,10 @@ use std::time::Duration;
 use dfu_core::{
     asynchronous::DfuAsyncIo, functional_descriptor::FunctionalDescriptor, DfuIo, DfuProtocol,
 };
-use nusb::transfer::{Control, ControlIn, ControlOut, ControlType, Recipient, TransferError};
+use nusb::{
+    transfer::{ControlIn, ControlOut, ControlType, Recipient, TransferError},
+    MaybeFuture,
+};
 use thiserror::Error;
 
 pub type DfuASync = dfu_core::asynchronous::DfuASync<DfuNusb, Error>;
@@ -25,6 +28,10 @@ pub enum Error {
     Nusb(#[from] nusb::Error),
     #[error(transparent)]
     Transfer(#[from] TransferError),
+    #[error(transparent)]
+    GetDescriptorError(#[from] nusb::GetDescriptorError),
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 }
 
 pub struct DfuNusb {
@@ -37,7 +44,7 @@ pub struct DfuNusb {
 impl DfuNusb {
     /// Open a device
     pub fn open(device: nusb::Device, interface: nusb::Interface, alt: u8) -> Result<Self, Error> {
-        interface.set_alt_setting(alt)?;
+        interface.set_alt_setting(alt).wait()?;
         let descriptor = interface
             .descriptors()
             .find_map(|alt| {
@@ -52,11 +59,13 @@ impl DfuNusb {
 
         let s = if let Some(index) = alt.string_index() {
             let lang = device
-                .get_string_descriptor_supported_languages(Duration::from_secs(3))?
+                .get_string_descriptor_supported_languages(Duration::from_secs(3))
+                .wait()?
                 .next()
                 .unwrap_or_default();
             device
                 .get_string_descriptor(index, lang, Duration::from_secs(3))
+                .wait()
                 .unwrap_or_default()
         } else {
             String::new()
@@ -115,17 +124,23 @@ impl DfuIo for DfuNusb {
         buffer: &mut [u8],
     ) -> Result<Self::Read, Self::Error> {
         let (control_type, recipient) = split_request_type(request_type);
-        let req = Control {
+        let req = ControlIn {
             control_type,
             recipient,
             request,
             value,
             index: self.interface.interface_number() as u16,
+            length: buffer
+                .len()
+                .try_into()
+                .expect("control in size exceeds u16"),
         };
         let r = self
             .interface
-            .control_in_blocking(req, buffer, Duration::from_secs(3))?;
-        Ok(r)
+            .control_in(req, Duration::from_secs(3))
+            .wait()?;
+        buffer[..r.len()].copy_from_slice(&r);
+        Ok(r.len())
     }
 
     fn write_control(
@@ -136,21 +151,22 @@ impl DfuIo for DfuNusb {
         buffer: &[u8],
     ) -> Result<Self::Write, Self::Error> {
         let (control_type, recipient) = split_request_type(request_type);
-        let req = Control {
+        let req = ControlOut {
             control_type,
             recipient,
             request,
             value,
             index: self.interface.interface_number() as u16,
+            data: buffer,
         };
-        let r = self
-            .interface
-            .control_out_blocking(req, buffer, Duration::from_secs(3))?;
-        Ok(r)
+        self.interface
+            .control_out(req, Duration::from_secs(3))
+            .wait()?;
+        Ok(buffer.len())
     }
 
     fn usb_reset(&self) -> Result<Self::Reset, Self::Error> {
-        self.device.reset()?;
+        self.device.reset().wait()?;
         Ok(())
     }
 
@@ -186,7 +202,10 @@ impl DfuAsyncIo for DfuNusb {
             index: self.interface.interface_number() as u16,
             length: buffer.len() as u16,
         };
-        let r = self.interface.control_in(req).await.into_result()?;
+        let r = self
+            .interface
+            .control_in(req, Duration::from_secs(3))
+            .await?;
         let len = buffer.len().min(r.len());
         buffer[0..len].copy_from_slice(&r[0..len]);
         Ok(len)
@@ -208,12 +227,14 @@ impl DfuAsyncIo for DfuNusb {
             index: self.interface.interface_number() as u16,
             data: buffer,
         };
-        let r = self.interface.control_out(req).await.into_result()?;
-        Ok(r.actual_length())
+        self.interface
+            .control_out(req, Duration::from_secs(3))
+            .await?;
+        Ok(buffer.len())
     }
 
     async fn usb_reset(&self) -> Result<Self::Reset, Self::Error> {
-        self.device.reset()?;
+        self.device.reset().await?;
         Ok(())
     }
 
