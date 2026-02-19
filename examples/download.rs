@@ -42,12 +42,15 @@ pub struct Cli {
 }
 
 pub fn try_open(vid: u16, pid: u16, int: u8, alt: u8) -> Result<DfuNusb, dfu_nusb::Error> {
+    use nusb::MaybeFuture;
+
     let info = nusb::list_devices()
+        .wait()
         .unwrap()
         .find(|dev| dev.vendor_id() == vid && dev.product_id() == pid)
         .ok_or(dfu_nusb::Error::DeviceNotFound)?;
-    let device = info.open()?;
-    let interface = device.claim_interface(int)?;
+    let device = info.open().wait()?;
+    let interface = device.claim_interface(int).wait()?;
 
     DfuNusb::open(device, interface, alt)
 }

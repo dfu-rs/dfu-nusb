@@ -16,7 +16,7 @@ async-std = ["dep:async-std"]
 
 [dependencies]
 dfu-core = { version = "0.8.0", features = ["async"] }
-nusb = "0.1.10"
+nusb = "0.2.1"
 thiserror = "2.0.1"
 tokio = { version = "1.48.0", features = ["time"], optional = true }
 async-std = { version = "1.13.2", features = ["alloc"], optional = true }
