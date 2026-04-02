@@ -1,6 +1,6 @@
 [package]
 name = "dfu-nusb"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 authors = ["Sjoerd Simons <sjoerd@collabora.com>"]
 license = "MIT OR Apache-2.0"
@@ -10,7 +10,7 @@ repository = "https://github.com/dfu-rs/dfu-nusb"
 readme = "README.md"
 
 [features]
-default = ["tokio"]
+default = []
 tokio = ["dep:tokio", "nusb/tokio"]
 smol = ["dep:smol", "nusb/smol"]
 
