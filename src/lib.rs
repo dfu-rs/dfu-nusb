@@ -6,8 +6,8 @@ use dfu_core::{
 use nusb::transfer::{Control, ControlIn, ControlOut, ControlType, Recipient, TransferError};
 use thiserror::Error;
 
-pub type DfuASync = dfu_core::asynchronous::DfuASync<DfuNusb, Error>;
-pub type DfuSync = dfu_core::sync::DfuSync<DfuNusb, Error>;
+pub type DfuASync = dfu_core::asynchronous::DfuAsync<DfuNusb, Error>;
+pub type DfuSync = dfu_core::synchronous::DfuSync<DfuNusb, Error>;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -149,7 +149,10 @@ impl DfuIo for DfuNusb {
         Ok(r)
     }
 
-    fn usb_reset(&self) -> Result<Self::Reset, Self::Error> {
+    fn usb_reset(self) -> Result<Self::Reset, Self::Error> {
+        // Drop the interface before resetting the device. On macOS, the device cannot be reset
+        // while any interface is still claimed
+        drop(self.interface);
         self.device.reset()?;
         Ok(())
     }
@@ -212,7 +215,10 @@ impl DfuAsyncIo for DfuNusb {
         Ok(r.actual_length())
     }
 
-    async fn usb_reset(&self) -> Result<Self::Reset, Self::Error> {
+    async fn usb_reset(self) -> Result<Self::Reset, Self::Error> {
+        // Drop the interface before resetting the device. On macOS, the device cannot be reset
+        // while any interface is still claimed
+        drop(self.interface);
         self.device.reset()?;
         Ok(())
     }
