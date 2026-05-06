@@ -108,25 +108,31 @@ pub async fn run(opts: Cli) -> anyhow::Result<()> {
 
     let file = bar.wrap_async_read(file);
     let file = file.compat();
-    match device.download(file, file_size).await {
-        Ok(_) => (),
+    let device = match device.download(file, file_size).await {
+        Ok(d) => d,
         Err(dfu_nusb::Error::Nusb(..)) if bar.is_finished() => {
             println!("USB error after upload; Device reset itself?");
             return Ok(());
         }
-        e => return e.context("could not write firmware to the device"),
-    }
+        e => {
+            return e
+                .context("could not write firmware to the device")
+                .map(|_| ())
+        }
+    };
     bar.finish();
 
-    if reset {
-        // Detach isn't strictly meant to be sent after a download, however u-boot in
-        // particular will only switch to the downloaded firmware if it saw a detach before
-        // a usb reset. So send a detach blindly...
-        //
-        // This matches the behaviour of dfu-util so should be safe
-        let _ = device.detach().await;
-        println!("Resetting device");
-        device.usb_reset().await?;
+    if let Some(device) = device {
+        if reset {
+            // Detach isn't strictly meant to be sent after a download, however u-boot in
+            // particular will only switch to the downloaded firmware if it saw a detach before
+            // a usb reset. So send a detach blindly...
+            //
+            // This matches the behaviour of dfu-util so should be safe
+            let _ = device.detach().await;
+            println!("Resetting device");
+            device.usb_reset().await?;
+        }
     }
 
     Ok(())
