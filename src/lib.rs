@@ -132,17 +132,13 @@ impl DfuIo for DfuNusb {
             request,
             value,
             index: self.interface.interface_number() as u16,
-            length: buffer.len() as u16,
+            length: buffer.len().try_into().unwrap_or(u16::MAX),
         };
         let r = self
             .interface
             .control_in(req, Duration::from_secs(3))
             .wait()?;
-        assert!(
-            buffer.len() >= r.len(),
-            "Expect nusb to never read more bytes than specified in the `ControlIn` struct"
-        );
-        let len = r.len();
+        let len = r.len().min(buffer.len());
         buffer[0..len].copy_from_slice(&r[0..len]);
         Ok(len)
     }
@@ -207,17 +203,13 @@ impl DfuAsyncIo for DfuNusb {
             request,
             value,
             index: self.interface.interface_number() as u16,
-            length: buffer.len() as u16,
+            length: buffer.len().try_into().unwrap_or(u16::MAX),
         };
         let r = self
             .interface
             .control_in(req, Duration::from_secs(3))
             .await?;
-        assert!(
-            buffer.len() >= r.len(),
-            "Expect nusb to never read more bytes than specified in the `ControlIn` struct"
-        );
-        let len = r.len();
+        let len = r.len().min(buffer.len());
         buffer[0..len].copy_from_slice(&r[0..len]);
         Ok(len)
     }
