@@ -252,7 +252,7 @@ impl DfuAsyncIo for DfuNusb {
         Ok(())
     }
 
-    #[cfg(feature = "tokio")]
+    #[cfg(all(feature = "tokio", not(feature = "smol")))]
     async fn sleep(&self, duration: Duration) {
         tokio::time::sleep(duration).await
     }
@@ -264,9 +264,7 @@ impl DfuAsyncIo for DfuNusb {
 
     #[cfg(not(any(feature = "tokio", feature = "smol")))]
     async fn sleep(&self, duration: Duration) {
-        compile_error!(
-            "You must select an async runtime through the features: tokio, asyncstd, ...",
-        )
+        compile_error!("You must select an async runtime through the features: tokio, smol, ...",)
     }
 
     fn protocol(&self) -> &dfu_core::DfuProtocol<Self::MemoryLayout> {
