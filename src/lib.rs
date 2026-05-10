@@ -3,7 +3,8 @@ use std::time::Duration;
 use dfu_core::{
     asynchronous::DfuAsyncIo, functional_descriptor::FunctionalDescriptor, DfuIo, DfuProtocol,
 };
-use nusb::transfer::{Control, ControlIn, ControlOut, ControlType, Recipient, TransferError};
+use nusb::transfer::{ControlIn, ControlOut, ControlType, Recipient, TransferError};
+use nusb::MaybeFuture;
 use thiserror::Error;
 
 pub type DfuASync = dfu_core::asynchronous::DfuAsync<DfuNusb, Error>;
@@ -20,9 +21,13 @@ pub enum Error {
     #[error(transparent)]
     FunctionalDescriptor(#[from] dfu_core::functional_descriptor::Error),
     #[error(transparent)]
+    GetDescriptorError(#[from] nusb::GetDescriptorError),
+    #[error(transparent)]
     Dfu(#[from] dfu_core::Error),
     #[error(transparent)]
     Nusb(#[from] nusb::Error),
+    #[error(transparent)]
+    StdIO(#[from] std::io::Error),
     #[error(transparent)]
     Transfer(#[from] TransferError),
 }
@@ -36,8 +41,12 @@ pub struct DfuNusb {
 
 impl DfuNusb {
     /// Open a device
-    pub fn open(device: nusb::Device, interface: nusb::Interface, alt: u8) -> Result<Self, Error> {
-        interface.set_alt_setting(alt)?;
+    pub async fn open(
+        device: nusb::Device,
+        interface: nusb::Interface,
+        alt: u8,
+    ) -> Result<Self, Error> {
+        interface.set_alt_setting(alt).await?;
         let descriptor = interface
             .descriptors()
             .find_map(|alt| {
@@ -52,11 +61,13 @@ impl DfuNusb {
 
         let s = if let Some(index) = alt.string_index() {
             let lang = device
-                .get_string_descriptor_supported_languages(Duration::from_secs(3))?
+                .get_string_descriptor_supported_languages(Duration::from_secs(3))
+                .await?
                 .next()
                 .unwrap_or_default();
             device
                 .get_string_descriptor(index, lang, Duration::from_secs(3))
+                .await
                 .unwrap_or_default()
         } else {
             String::new()
@@ -115,17 +126,21 @@ impl DfuIo for DfuNusb {
         buffer: &mut [u8],
     ) -> Result<Self::Read, Self::Error> {
         let (control_type, recipient) = split_request_type(request_type);
-        let req = Control {
+        let req = ControlIn {
             control_type,
             recipient,
             request,
             value,
             index: self.interface.interface_number() as u16,
+            length: buffer.len().try_into().unwrap_or(u16::MAX),
         };
         let r = self
             .interface
-            .control_in_blocking(req, buffer, Duration::from_secs(3))?;
-        Ok(r)
+            .control_in(req, Duration::from_secs(3))
+            .wait()?;
+        let len = r.len().min(buffer.len());
+        buffer[0..len].copy_from_slice(&r[0..len]);
+        Ok(len)
     }
 
     fn write_control(
@@ -136,24 +151,25 @@ impl DfuIo for DfuNusb {
         buffer: &[u8],
     ) -> Result<Self::Write, Self::Error> {
         let (control_type, recipient) = split_request_type(request_type);
-        let req = Control {
+        let req = ControlOut {
             control_type,
             recipient,
             request,
             value,
             index: self.interface.interface_number() as u16,
+            data: buffer,
         };
-        let r = self
-            .interface
-            .control_out_blocking(req, buffer, Duration::from_secs(3))?;
-        Ok(r)
+        self.interface
+            .control_out(req, Duration::from_secs(3))
+            .wait()?;
+        Ok(buffer.len())
     }
 
     fn usb_reset(self) -> Result<Self::Reset, Self::Error> {
         // Drop the interface before resetting the device. On macOS, the device cannot be reset
         // while any interface is still claimed
         drop(self.interface);
-        self.device.reset()?;
+        self.device.reset().wait()?;
         Ok(())
     }
 
@@ -187,10 +203,13 @@ impl DfuAsyncIo for DfuNusb {
             request,
             value,
             index: self.interface.interface_number() as u16,
-            length: buffer.len() as u16,
+            length: buffer.len().try_into().unwrap_or(u16::MAX),
         };
-        let r = self.interface.control_in(req).await.into_result()?;
-        let len = buffer.len().min(r.len());
+        let r = self
+            .interface
+            .control_in(req, Duration::from_secs(3))
+            .await?;
+        let len = r.len().min(buffer.len());
         buffer[0..len].copy_from_slice(&r[0..len]);
         Ok(len)
     }
@@ -211,33 +230,33 @@ impl DfuAsyncIo for DfuNusb {
             index: self.interface.interface_number() as u16,
             data: buffer,
         };
-        let r = self.interface.control_out(req).await.into_result()?;
-        Ok(r.actual_length())
+        self.interface
+            .control_out(req, Duration::from_secs(3))
+            .await?;
+        Ok(buffer.len())
     }
 
     async fn usb_reset(self) -> Result<Self::Reset, Self::Error> {
         // Drop the interface before resetting the device. On macOS, the device cannot be reset
         // while any interface is still claimed
         drop(self.interface);
-        self.device.reset()?;
+        self.device.reset().await?;
         Ok(())
     }
 
-    #[cfg(feature = "tokio")]
+    #[cfg(all(feature = "tokio", not(feature = "smol")))]
     async fn sleep(&self, duration: Duration) {
         tokio::time::sleep(duration).await
     }
 
-    #[cfg(feature = "async-std")]
+    #[cfg(feature = "smol")]
     async fn sleep(&self, duration: Duration) {
-        async_std::task::sleep(duration).await
+        smol::Timer::after(duration).await;
     }
 
-    #[cfg(not(any(feature = "tokio", feature = "async-std")))]
+    #[cfg(not(any(feature = "tokio", feature = "smol")))]
     async fn sleep(&self, duration: Duration) {
-        compile_error!(
-            "You must select an async runtime through the features: tokio, asyncstd, ...",
-        )
+        compile_error!("You must select an async runtime through the features: tokio, smol, ...",)
     }
 
     fn protocol(&self) -> &dfu_core::DfuProtocol<Self::MemoryLayout> {

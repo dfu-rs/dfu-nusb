@@ -41,15 +41,15 @@ pub struct Cli {
     override_address: Option<u32>,
 }
 
-pub fn try_open(vid: u16, pid: u16, int: u8, alt: u8) -> Result<DfuNusb, dfu_nusb::Error> {
+pub async fn try_open(vid: u16, pid: u16, int: u8, alt: u8) -> Result<DfuNusb, dfu_nusb::Error> {
     let info = nusb::list_devices()
-        .unwrap()
+        .await?
         .find(|dev| dev.vendor_id() == vid && dev.product_id() == pid)
         .ok_or(dfu_nusb::Error::DeviceNotFound)?;
-    let device = info.open()?;
-    let interface = device.claim_interface(int)?;
+    let device = info.open().await?;
+    let interface = device.claim_interface(int).await?;
 
-    DfuNusb::open(device, interface, alt)
+    DfuNusb::open(device, interface, alt).await
 }
 
 pub async fn run(opts: Cli) -> anyhow::Result<()> {
@@ -70,14 +70,14 @@ pub async fn run(opts: Cli) -> anyhow::Result<()> {
         .context("the firmware file is too big")?;
     file.seek(io::SeekFrom::Start(0)).await?;
 
-    let device = match try_open(vid, pid, intf, alt) {
+    let device = match try_open(vid, pid, intf, alt).await {
         Err(dfu_nusb::Error::DeviceNotFound) if wait => {
             let bar = indicatif::ProgressBar::new_spinner();
             bar.set_message("Waiting for device");
 
             loop {
                 tokio::time::sleep(std::time::Duration::from_millis(250)).await;
-                match try_open(vid, pid, intf, alt) {
+                match try_open(vid, pid, intf, alt).await {
                     Err(dfu_nusb::Error::DeviceNotFound) => bar.tick(),
                     r => {
                         bar.finish();
