@@ -43,11 +43,8 @@ pub struct Cli {
 
 pub async fn try_open(vid: u16, pid: u16, int: u8, alt: u8) -> Result<DfuNusb, dfu_nusb::Error> {
     let info = nusb::list_devices()
-        .await
-        .ok()
-        .and_then(|mut devices| {
-            devices.find(|dev| dev.vendor_id() == vid && dev.product_id() == pid)
-        })
+        .await?
+        .find(|dev| dev.vendor_id() == vid && dev.product_id() == pid)
         .ok_or(dfu_nusb::Error::DeviceNotFound)?;
     let device = info.open().await?;
     let interface = device.claim_interface(int).await?;
